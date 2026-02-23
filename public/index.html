@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>생기부 자동 수집 시스템</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #020817;
+      min-height: 100vh;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 80px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(#0f172a33 1px, transparent 1px),
+        linear-gradient(90deg, #0f172a33 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 500px;
+      background: radial-gradient(ellipse, #1d4ed81a 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 680px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .header-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 0 24px #1d4ed850;
+      flex-shrink: 0;
+    }
+
+    .header-title { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; }
+    .header-sub { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #475569; letter-spacing: 1px; margin-top: 2px; }
+    .header-badge { margin-left: auto; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      transition: all 0.3s ease;
+    }
+
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    .badge.idle    { color:#94a3b8; background:#1e293b; border:1px solid #94a3b833; }
+    .badge.idle .badge-dot { background:#94a3b8; }
+    .badge.parsing { color:#f59e0b; background:#1c1407; border:1px solid #f59e0b33; }
+    .badge.parsing .badge-dot { background:#f59e0b; box-shadow:0 0 6px #f59e0b; }
+    .badge.loading { color:#3b82f6; background:#0c1a2e; border:1px solid #3b82f633; }
+    .badge.loading .badge-dot { background:#3b82f6; box-shadow:0 0 6px #3b82f6; animation: pulse 1s infinite; }
+    .badge.success { color:#22c55e; background:#052e16; border:1px solid #22c55e33; }
+    .badge.success .badge-dot { background:#22c55e; box-shadow:0 0 6px #22c55e; }
+    .badge.error   { color:#ef4444; background:#1f0606; border:1px solid #ef444433; }
+    .badge.error .badge-dot { background:#ef4444; box-shadow:0 0 6px #ef4444; }
+
+    .card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 28px;
+      animation: fadeUp 0.5s 0.1s ease both;
+    }
+
+    .section-label {
+      display: block;
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      color: #64748b;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #020817;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: #cbd5e1;
+      font-size: 13px;
+      font-family: 'IBM Plex Mono', monospace;
+      line-height: 1.7;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      margin-bottom: 16px;
+    }
+
+    textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px #3b82f620; }
+    textarea::placeholder { color: #334155; }
+
+    .parsed-box {
+      background: #020817;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 1fr 130px;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .field-label { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #475569; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+    .field-value { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: #e2e8f0; word-break: break-all; line-height: 1.5; }
+    .field-value.empty { color: #334155; }
+
+    .error-box {
+      background: #1f0606;
+      border: 1px solid #ef444430;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #f87171;
+      font-family: 'IBM Plex Mono', monospace;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .error-box.show { display: flex; }
+
+    .progress-wrap { margin-bottom: 16px; display: none; }
+    .progress-wrap.show { display: block; }
+    .progress-info { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .progress-label { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: #3b82f6; }
+    .progress-pct   { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: #475569; }
+    .progress-track { height: 4px; background: #1e293b; border-radius: 999px; overflow: hidden; }
+    .progress-bar   { height: 100%; width: 0%; background: linear-gradient(90deg, #1d4ed8, #0ea5e9); border-radius: 999px; transition: width 0.4s ease; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 13px 0;
+      background: #1d4ed8;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px #1d4ed830;
+    }
+
+    .submit-btn:hover:not(:disabled) { background: #2563eb; transform: translateY(-1px); box-shadow: 0 8px 24px #3b82f640; }
+    .submit-btn:active:not(:disabled) { transform: translateY(0); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .result-card {
+      margin-top: 24px;
+      background: #0f172a;
+      border: 1px solid #22c55e30;
+      border-radius: 16px;
+      overflow: hidden;
+      display: none;
+      animation: fadeUp 0.4s ease both;
+    }
+    .result-card.show { display: block; }
+
+    .result-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #052e1640;
+    }
+
+    .result-title { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #86efac; font-weight: 500; }
+    .result-filename { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: #475569; }
+
+    .download-btn {
+      padding: 6px 14px;
+      background: #166534;
+      border: 1px solid #22c55e30;
+      border-radius: 6px;
+      color: #86efac;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'IBM Plex Mono', monospace;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      transition: background 0.2s;
+    }
+    .download-btn:hover { background: #15803d; }
+
+    #pdf-preview { width: 100%; height: 720px; border: none; background: #020817; display: block; }
+
+    .success-msg {
+      margin-top: 24px;
+      background: #052e16;
+      border: 1px solid #22c55e30;
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+      animation: fadeUp 0.4s ease both;
+    }
+    .success-msg.show { display: flex; }
+    .success-msg-text { font-size: 14px; color: #86efac; font-weight: 500; margin-bottom: 4px; }
+    .success-msg-path { font-size: 12px; font-family: 'IBM Plex Mono', monospace; color: #475569; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">📄</div>
+    <div>
+      <div class="header-title">생기부 자동 수집 시스템</div>
+      <div class="header-sub">SCHOOL RECORD AUTO-COLLECTOR v1.0</div>
+    </div>
+    <div class="header-badge">
+      <span class="badge idle" id="status-badge">
+        <span class="badge-dot"></span>
+        <span id="status-label">대기</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card">
+    <label class="section-label" for="raw-input">열람 정보 붙여넣기</label>
+    <textarea id="raw-input" rows="3"
+      placeholder="https://www.dpaper.kr/sipreCrtfc.do?urlScrtyTkn=... 문서열람용번호:123456"></textarea>
+
+    <div class="parsed-box">
+      <div>
+        <div class="field-label">tempUrl</div>
+        <div class="field-value empty" id="display-url">—</div>
+      </div>
+      <div>
+        <div class="field-label">viewCode</div>
+        <div class="field-value empty" id="display-code">—</div>
+      </div>
+    </div>
+
+    <div class="error-box" id="error-box">
+      <span>⚠</span>
+      <span id="error-msg"></span>
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-info">
+        <span class="progress-label">문서 수집 중...</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submit-btn" disabled>자동 수집 시작</button>
+  </div>
+
+  <!-- PDF result -->
+  <div class="result-card" id="result-card">
+    <div class="result-header">
+      <div class="result-title">
+        <span>✅</span>
+        <span>문서 수집 완료</span>
+        <span class="result-filename" id="result-filename"></span>
+      </div>
+      <a class="download-btn" id="download-btn" href="#" download>↓ 다운로드</a>
+    </div>
+    <iframe id="pdf-preview" title="PDF 미리보기"></iframe>
+  </div>
+
+  <!-- Success (server saved, no blob) -->
+  <div class="success-msg" id="success-msg">
+    <span style="font-size:24px">✅</span>
+    <div>
+      <div class="success-msg-text">문서 수집 완료</div>
+      <div class="success-msg-path" id="success-path"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const BACKEND_URL = 'http://localhost:3000'; // ← 백엔드 포트에 맞게 수정
+
+  const el = id => document.getElementById(id);
+
+  const rawInput     = el('raw-input');
+  const displayUrl   = el('display-url');
+  const displayCode  = el('display-code');
+  const statusBadge  = el('status-badge');
+  const statusLabel  = el('status-label');
+  const errorBox     = el('error-box');
+  const errorMsgEl   = el('error-msg');
+  const progressWrap = el('progress-wrap');
+  const progressBar  = el('progress-bar');
+  const progressPct  = el('progress-pct');
+  const submitBtn    = el('submit-btn');
+  const resultCard   = el('result-card');
+  const resultFilename = el('result-filename');
+  const downloadBtn  = el('download-btn');
+  const pdfPreview   = el('pdf-preview');
+  const successMsg   = el('success-msg');
+  const successPath  = el('success-path');
+
+  let parsed = { tempUrl: null, viewCode: null };
+  let progressInterval = null;
+
+  function parseInput(raw) {
+    const urlMatch  = raw.match(/https?:\/\/[^\s]+/);
+    const codeMatch = raw.match(/[:\s](\d{6})(?:\s|$)/);
+    return {
+      tempUrl:  urlMatch  ? urlMatch[0].trim() : null,
+      viewCode: codeMatch ? codeMatch[1]       : null,
+    };
+  }
+
+  function setStatus(s) {
+    const map = {
+      idle:    { label: '대기',    cls: 'idle'    },
+      parsing: { label: '파싱 중', cls: 'parsing' },
+      loading: { label: '처리 중', cls: 'loading' },
+      success: { label: '완료',    cls: 'success' },
+      error:   { label: '오류',    cls: 'error'   },
+    };
+    const m = map[s] || map.idle;
+    statusBadge.className = `badge ${m.cls}`;
+    statusLabel.textContent = m.label;
+  }
+
+  function showError(msg) {
+    errorBox.classList.add('show');
+    errorMsgEl.textContent = msg;
+  }
+
+  function hideError() {
+    errorBox.classList.remove('show');
+    errorMsgEl.textContent = '';
+  }
+
+  function setProgress(pct) {
+    progressBar.style.width = pct + '%';
+    progressPct.textContent = Math.round(pct) + '%';
+  }
+
+  rawInput.addEventListener('input', () => {
+    const val = rawInput.value;
+    resultCard.classList.remove('show');
+    successMsg.classList.remove('show');
+    hideError();
+
+    if (!val.trim()) {
+      parsed = { tempUrl: null, viewCode: null };
+      displayUrl.textContent  = '—'; displayUrl.classList.add('empty');
+      displayCode.textContent = '—'; displayCode.classList.add('empty');
+      submitBtn.disabled = true;
+      setStatus('idle');
+      return;
+    }
+
+    setStatus('parsing');
+    parsed = parseInput(val);
+
+    if (parsed.tempUrl) {
+      displayUrl.textContent = parsed.tempUrl;
+      displayUrl.classList.remove('empty');
+    } else {
+      displayUrl.textContent = '—';
+      displayUrl.classList.add('empty');
+    }
+
+    if (parsed.viewCode) {
+      displayCode.textContent = parsed.viewCode;
+      displayCode.classList.remove('empty');
+    } else {
+      displayCode.textContent = '—';
+      displayCode.classList.add('empty');
+    }
+
+    if (parsed.tempUrl && parsed.viewCode) {
+      setStatus('idle');
+      submitBtn.disabled = false;
+    } else {
+      setStatus('error');
+      submitBtn.disabled = true;
+      showError('링크 또는 6자리 열람번호를 인식하지 못했습니다.');
+    }
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    if (!parsed.tempUrl || !parsed.viewCode) return;
+
+    setStatus('loading');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '수집 중...';
+    hideError();
+    resultCard.classList.remove('show');
+    successMsg.classList.remove('show');
+    progressWrap.classList.add('show');
+    setProgress(0);
+
+    let pct = 0;
+    progressInterval = setInterval(() => {
+      pct += Math.random() * 7;
+      if (pct > 85) pct = 85;
+      setProgress(pct);
+    }, 600);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/records/temp-view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempUrl: parsed.tempUrl, viewCode: parsed.viewCode }),
+      });
+
+      clearInterval(progressInterval);
+      setProgress(100);
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || `서버 오류: ${res.status}`);
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+
+      if (contentType.includes('application/pdf')) {
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const disposition = res.headers.get('content-disposition') || '';
+        const nameMatch = disposition.match(/filename="?([^"]+)"?/);
+        const filename  = nameMatch ? nameMatch[1] : `record_${parsed.viewCode}.pdf`;
+
+        pdfPreview.src       = url;
+        downloadBtn.href     = url;
+        downloadBtn.download = filename;
+        resultFilename.textContent = '· ' + filename;
+        resultCard.classList.add('show');
+
+      } else {
+        const data = await res.json();
+        const savedPath = data.savedPath || data.pdfPath || data.filePath || data.path || '';
+        successPath.textContent = savedPath ? '저장 경로: ' + savedPath : '서버에 저장 완료';
+        successMsg.classList.add('show');
+      }
+
+      setStatus('success');
+
+    } catch (err) {
+      clearInterval(progressInterval);
+      setStatus('error');
+      showError(err.message || '알 수 없는 오류가 발생했습니다.');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '자동 수집 시작';
+      progressWrap.classList.remove('show');
+    }
+  });
+</script>
+</body>
+</html>

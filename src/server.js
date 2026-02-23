@@ -13,7 +13,7 @@ process.on("unhandledRejection", (err) => {
 const server = app.listen(port, () => {
   console.log(`Server running on :http://localhost:${port}`);
 });
-
+server.timeout = 300000;
 server.on("error", (err) => {
   console.error("server error:", err);
 });

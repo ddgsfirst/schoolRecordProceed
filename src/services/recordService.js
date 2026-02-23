@@ -4,10 +4,6 @@ import path from "path";
 import { PDFDocument } from "pdf-lib";
 import "dotenv/config";
 
-/**
- * tempUrl: https://www.dpaper.kr/sipreCrtfc.do?urlScrtyTkn=...
- * viewCode: "123456" (6자리)
- */
 export async function fetchRecordFromTempView({ tempUrl, viewCode }) {
   const downloadDir = process.env.DOWNLOAD_DIR || "./downloads";
   fs.mkdirSync(downloadDir, { recursive: true });
@@ -123,7 +119,6 @@ export async function fetchRecordFromTempView({ tempUrl, viewCode }) {
     await docPage.waitForTimeout(250);
   }
 
-  // ✅ 너가 말한 핵심: "자동" -> "페이지맞춤" 으로 바꾸고 캡처
   // ✅ "자동" -> "페이지맞춤" (option value="page-fit") 을 selectOption으로 확실히 적용
 async function setFitToPageByUI(docPage) {
   // 오버레이 떠 있으면 방해되니 한번 닫고 시작
