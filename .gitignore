@@ -1,0 +1,20 @@
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env
+
+# Downloads and Debug files
+downloads/
+
+# PDF files (Specific file and general)
+정부24 - 유치원 및 초중등학교 학교(유치원)생활기록부 증명 _ 문서출력.pdf
+*.pdf
+
+# Configuration and Log files
+.txt
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
