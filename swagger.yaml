@@ -1,0 +1,117 @@
+openapi: 3.0.0
+info:
+  title: 생기부 자동 수집 시스템 API
+  description: |
+    임시 URL과 열람번호를 이용해 생활기록부(PDF)를 자동 캡처 및 생성하거나, 
+    기존 PDF를 업로드하여 미리보기를 제공하는 API 서비스입니다.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: 로컬 개발 서버
+
+paths:
+  # 1. 임시주소를 통한 PDF 수집 및 스트리밍
+  /records/temp-view:
+    post:
+      summary: 임시주소 기반 문서 수집 (Puppeteer/Playwright)
+      description: |
+        사용자가 입력한 임시 URL과 6자리 열람번호를 사용하여 브라우저를 자동 제어합니다. 
+        문서를 '페이지 맞춤' 모드로 렌더링한 후 각 페이지를 캡처하여 하나의 PDF로 병합 후 반환합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tempUrl
+                - viewCode
+              properties:
+                tempUrl:
+                  type: string
+                  example: "https://www.dpaper.kr/sipreCrtfc.do?urlScrtyTkn=abcdefg"
+                  description: 문서 열람용 임시 URL
+                viewCode:
+                  type: string
+                  example: "123456"
+                  description: 6자리 숫자 열람번호
+      responses:
+        '200':
+          description: 수집 완료 및 PDF 스트리밍
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 잘못된 요청 (형식 미달)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 수집 실패 또는 타임아웃
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 2. PDF 직접 업로드 및 미리보기
+  /records/upload-pdf:
+    post:
+      summary: PDF 파일 직접 업로드
+      description: 클라이언트에서 PDF 파일을 업로드하면 서버에 임시 저장 후 다시 PDF 스트림으로 반환합니다.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                pdf:
+                  type: string
+                  format: binary
+                  description: 업로드할 PDF 파일
+      responses:
+        '200':
+          description: 업로드 성공 및 파일 반환
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: 파일이 전송되지 않음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 3. 헬스체크
+  /health:
+    get:
+      summary: 서버 상태 확인
+      responses:
+        '200':
+          description: 서버 정상 작동 중
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "viewCode는 6자리 숫자여야 합니다."
