@@ -320,7 +320,17 @@
 
     <button class="submit-btn" id="submit-btn" disabled>자동 수집 시작</button>
   </div>
-
+    <!-- PDF 업로드 카드 -->
+<div class="card" style="margin-top: 20px;">
+  <label class="section-label">PDF 직접 업로드</label>
+  <input type="file" id="pdf-upload" accept="application/pdf"
+    style="width:100%; background:#020817; border:1px solid #1e293b;
+    border-radius:10px; padding:14px 16px; color:#cbd5e1;
+    font-family:'IBM Plex Mono',monospace; font-size:13px; cursor:pointer;" />
+  <button class="submit-btn" id="upload-btn" style="margin-top:12px;" disabled>
+    업로드 & 미리보기
+  </button>
+</div>
   <!-- PDF result -->
   <div class="result-card" id="result-card">
     <div class="result-header">
@@ -333,6 +343,8 @@
     </div>
     <iframe id="pdf-preview" title="PDF 미리보기"></iframe>
   </div>
+
+
 
   <!-- Success (server saved, no blob) -->
   <div class="success-msg" id="success-msg">
@@ -519,6 +531,47 @@
       submitBtn.textContent = '자동 수집 시작';
       progressWrap.classList.remove('show');
     }
+
+
+});
+    const pdfUpload = el('pdf-upload');
+const uploadBtn = el('upload-btn');
+
+pdfUpload.addEventListener('change', () => {
+  uploadBtn.disabled = !pdfUpload.files.length;
+});
+
+uploadBtn.addEventListener('click', async () => {
+  const file = pdfUpload.files[0];
+  if (!file) return;
+
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = '업로드 중...';
+
+  const formData = new FormData();
+  formData.append('pdf', file);
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/records/upload-pdf`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    pdfPreview.src = url;
+    downloadBtn.href = url;
+    downloadBtn.download = file.name;
+    resultFilename.textContent = '· ' + file.name;
+    resultCard.classList.add('show');
+
+  } catch (err) {
+    alert('업로드 실패: ' + err.message);
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '업로드 & 미리보기';
+  }
   });
 </script>
 </body>

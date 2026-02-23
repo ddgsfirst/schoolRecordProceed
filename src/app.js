@@ -4,10 +4,23 @@ import recordRoutes from "./routes/recordRoutes.js";
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import multer from 'multer';
+import fs from 'fs';
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
+const upload = multer({ dest: './downloads/' });
+app.post('/records/upload-pdf', upload.single('pdf'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: '파일이 없습니다.' });
+  
+  // 확장자를 .pdf로 변경
+  const newPath = req.file.path + '.pdf';
+  fs.renameSync(req.file.path, newPath);
+  
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${req.file.originalname}"`);
+  res.setHeader('Content-Length', req.file.size);
+  fs.createReadStream(newPath).pipe(res);
+});
 app.timeout = 300000;
 app.use(cors());
 

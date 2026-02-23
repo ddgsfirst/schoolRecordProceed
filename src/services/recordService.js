@@ -406,7 +406,11 @@ async function setFitToPageByUI(docPage) {
     // PDF 합치기
     const outPdf = path.join(downloadDir, `student_record_pages_${Date.now()}.pdf`);
     await buildPdfFromPngs(shots, outPdf);
-
+    for (const pngPath of shots) {
+  fs.unlink(pngPath, (err) => {
+    if (err) console.warn('PNG 삭제 실패:', pngPath, err.message);
+  });
+}
     return {
       ok: true,
       type: "CAPTURED_PAGES_PDF",
